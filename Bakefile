@@ -1,0 +1,12 @@
+#!/bin/bash
+
+project="github.com/mgutz/dkgo"
+
+bake-default() {
+    go run $project "$@"
+}
+
+#. Installs the binary
+install() {
+    go install $project && echo OK
+}
