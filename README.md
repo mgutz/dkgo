@@ -1,10 +1,10 @@
 # dkgo
 
-Utility commands for [dk tiling WM](https://bitbucket.org/natemaia/dk)
+Extra commands to make [dk tiling WM](https://bitbucket.org/natemaia/dk) more awesome
 
 To Install
 
-    go install github.com/mgutz/dkgo
+    go install github.com/mgutz/dkgo@latest
 
 ## Commands
 

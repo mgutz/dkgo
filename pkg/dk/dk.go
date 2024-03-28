@@ -1,79 +1,85 @@
 package dk
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 
 	"github.com/mgutz/dkgo/pkg/util"
-	"github.com/valyala/fastjson"
-)
-
-var (
-	FJFalse = fastjson.MustParse("false")
-	FJTrue  = fastjson.MustParse("true")
 )
 
 // GetStatus returns the status of dk WM.
-func GetStatus() (*fastjson.Value, error) {
+func GetStatusDK() (*Status, error) {
 	result, err := util.Exec("dkcmd status type=json num=1")
 	if err != nil {
 		return nil, err
 	}
-	return fastjson.ParseBytes(result.Output)
+	var status Status
+	err = json.Unmarshal([]byte(result.Output), &status)
+	if err != nil {
+		return nil, err
+	}
+	return &status, nil
 }
 
 // ViewWorkspace switches to the workspace of the client with the given ID.
-func ViewWorkspace(clientID string) {
+func ViewWorkspace(clientID string) bool {
 	if clientID == "" || !strings.HasPrefix(clientID, "0x") {
-		return
+		return false
 	}
 
-	status, err := GetStatus()
+	status, err := GetStatusDK()
 	if err != nil {
 		log.Println(err)
-		return
+		return false
 	}
 
-	clients := status.GetArray("clients")
+	clients := status.Clients
 	var wksNumber int
 	for _, client := range clients {
-		if string(client.GetStringBytes("id")) == clientID {
-			wksNumber = client.GetInt("workspace")
+		if client.ID == clientID {
+			wksNumber = client.Workspace
 			break
 		}
 	}
 	if wksNumber == 0 {
-		return
+		return false
 	}
 
-	focusedWorkspaceNumber := status.GetInt("global", "focused", "workspace", "number")
+	focusedWorkspaceNumber := status.Global.Focused.Workspace.Number
 	if wksNumber != focusedWorkspaceNumber {
-		util.Execf("dkcmd ws %d", wksNumber)
+		_, err := util.Execf("dkcmd ws %d", wksNumber)
+		if err == nil {
+			return true
+		}
 	}
+	return false
 }
 
 // SwapMaster swaps the master window. v can be a window ID, a tile index, or
 // blank, in which case last focused or current focused is used. Master has
 // focus after the swap.
 func SwapMaster(v string) error {
+	// workspaceChanged := ViewWorkspace(v)
+	// isID := false
 	ViewWorkspace(v)
 
-	status, err := GetStatus()
+	status, err := GetStatusDK()
 	if err != nil {
 		return fmt.Errorf("failed to get status: %w", err)
 	}
 
-	wks := status.Get("global", "focused", "workspace")
-	clients := wks.GetArray("clients")
+	wks := status.Global.Focused.Workspace
+	clients := wks.Clients
 	// return if no other clients to swap with
 	if len(clients) < 2 {
 		return nil
 	}
 
 	master := clients[0]
-	masterID := string(master.GetStringBytes("id"))
+	masterID := master.ID
 	index := -1
 
 	// v can be a window ID, a tile index, or blank
@@ -81,7 +87,8 @@ func SwapMaster(v string) error {
 		// Do nothing
 	} else if strings.HasPrefix(v, "0x") {
 		for i, client := range clients {
-			if string(client.GetStringBytes("id")) == v {
+			if client.ID == v {
+				// isID = true
 				index = i
 				break
 			}
@@ -93,24 +100,24 @@ func SwapMaster(v string) error {
 		}
 	}
 
-	var target *fastjson.Value
+	var target *Client
 	if 0 < index && index < len(clients) {
 		// caller passed a tile index
 		target = clients[index]
-	} else if master.GetBool("focused") && master.GetBool("float") {
+	} else if master.Focused && master.Float {
 		// allow focused, floating windows to be swapped
 		_, err := util.Execf("dkcmd win %s float", masterID)
 		if err != nil {
 			return err
 		}
 		return SwapMaster(masterID)
-	} else if master.GetBool("focused") {
+	} else if master.Focused {
 		// nothing was passed and master has focus, use last focused window
-		target = wks.Get("focus_stack", "1")
+		target = wks.FocusStack[1]
 	} else {
 		// nothing was passed, use focused slave
 		for _, client := range clients {
-			if client.GetBool("focused") {
+			if client.Focused {
 				target = client
 				break
 			}
@@ -120,22 +127,21 @@ func SwapMaster(v string) error {
 	if target == nil {
 		return nil
 	}
-	targetID := string(target.GetStringBytes("id"))
 	commands := []string{}
 
-	if target.GetBool("float") {
-		util.Execf("dkcmd win %s float", targetID)
-		return SwapMaster(targetID)
+	if target.Float {
+		util.Execf("dkcmd win %s float", target.ID)
+		return SwapMaster(target.ID)
 	}
 
-	if target.GetBool("focused") {
+	if target.Focused {
 		// ensure current master is recorded in focus history
 		commands = append(commands, fmt.Sprintf("dkcmd win %s focus", masterID))
 	}
 	// swap master with target
-	commands = append(commands, fmt.Sprintf("dkcmd win %s swap", targetID))
+	commands = append(commands, fmt.Sprintf("dkcmd win %s swap", target.ID))
 	// ensure master has focus
-	commands = append(commands, fmt.Sprintf("dkcmd win %s focus", targetID))
+	commands = append(commands, fmt.Sprintf("dkcmd win %s focus", target.ID))
 
 	_, err = util.Bash(strings.Join(commands, " && "))
 	return err
@@ -143,20 +149,20 @@ func SwapMaster(v string) error {
 
 // CycleDynamicWS cycles through dynamic workspaces like MacOS.
 func CycleDynamicWS(direction string) error {
-	status, err := GetStatus()
+	status, err := GetStatusDK()
 	if err != nil {
 		return err
 	}
 
 	// iterate through workspaces and keep ALL occupied and 1 empty workspace
-	workspaces := status.GetArray("workspaces")
+	workspaces := status.Workspaces
 	emptyFound := false
 	for _, ws := range workspaces {
-		if len(ws.GetArray("clients")) > 0 {
+		if len(ws.Clients) > 0 {
 			continue
 		}
 		if emptyFound {
-			ws.Set("SKIP", FJTrue)
+			ws._skip = true
 			continue
 		}
 		emptyFound = true
@@ -172,7 +178,7 @@ func CycleDynamicWS(direction string) error {
 	// determine where to start
 	focusedIdx := -1
 	for i, ws := range workspaces {
-		if ws.GetBool("focused") {
+		if ws.Focused {
 			focusedIdx = i
 			break
 		}
@@ -186,7 +192,7 @@ func CycleDynamicWS(direction string) error {
 	for i := 1; i < len(workspaces); i++ {
 		idx := (focusedIdx + i) % len(workspaces)
 		ws := workspaces[idx]
-		if ws.GetBool("SKIP") {
+		if ws._skip {
 			continue
 		}
 		target = idx
@@ -197,6 +203,6 @@ func CycleDynamicWS(direction string) error {
 	}
 
 	// view the workspace
-	_, err = util.Execf("dkcmd ws %d", workspaces[target].GetInt("number"))
+	_, err = util.Execf("dkcmd ws %d", workspaces[target].Number)
 	return err
 }

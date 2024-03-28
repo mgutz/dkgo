@@ -6,20 +6,19 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mgutz/dkgo/pkg/desktop"
 	"github.com/shirou/gopsutil/v3/process"
-	"github.com/valyala/fastjson"
+
+	"github.com/mgutz/dkgo/pkg/desktop"
 )
 
-type Client struct {
+type X11Client struct {
 	ID          string
 	Commandline string
-	WMPid       int
+	PID         int
 	WMInstance  string
 	WMClass     string
 	WMName      string
 	WorkspaceID int
-	WMType      string
 	Icon        string
 }
 
@@ -37,45 +36,45 @@ type Terminal struct {
 // selected window. If the selected window is in a different workspace, the
 // workspace is focused first.
 func RofiWindowList() error {
-	status, err := GetStatus()
+	status, err := GetStatusDK()
 	if err != nil {
 		return err
 	}
 
-	orderBy := "focus_stack"
-	wks := status.Get("global", "focused", "workspace")
-	dkClients := wks.GetArray(orderBy)
-
+	wks := status.Global.Focused.Workspace
+	dkClients := wks.FocusStack
 	focusedClientID := ""
+	if len(dkClients) > 0 {
+		focusedClientID = dkClients[0].ID
+	}
+
 	for _, client := range dkClients {
-		if client.GetBool("focused") {
-			focusedClientID = string(client.GetStringBytes("id"))
+		if client.Focused {
+			focusedClientID = client.ID
 			break
 		}
 	}
 
-	// Create Rofi menu
 	menu := RofiMenu{}
+	// put the focused client at the top of the list
 	addClients(&menu, dkClients, focusedClientID)
-
-	for _, wks := range status.GetArray("workspaces") {
-		if wks.GetBool("focused") {
+	// add rest of the clients
+	for _, wks := range status.Workspaces {
+		if wks.Focused {
 			continue
 		}
-		clients := wks.GetArray(orderBy)
+		clients := wks.FocusStack
 		if len(clients) > 0 {
 			menu.HasMultipleWorkspaces = true
 			addClients(&menu, clients, "")
 		}
 	}
 
-	// Run Rofi menu
 	selectedClient := menu.Run()
 	if selectedClient == nil {
 		return nil
 	}
 
-	// Swap master with selected client
 	return SwapMaster(selectedClient.ID)
 }
 
@@ -92,10 +91,10 @@ func getCommandLine(pid int) (string, error) {
 }
 
 // addClients adds the clients to the Rofi menu.
-func addClients(menu *RofiMenu, dkClients []*fastjson.Value, skipID string) {
+func addClients(menu *RofiMenu, dkClients []*Client, skipID string) {
 	for _, dkClient := range dkClients {
 		// do not include the focused client in the list
-		if string(dkClient.GetStringBytes("id")) == skipID {
+		if dkClient.ID == skipID {
 			continue
 		}
 
@@ -108,12 +107,12 @@ func addClients(menu *RofiMenu, dkClients []*fastjson.Value, skipID string) {
 }
 
 // fromDKClient creates a Client from a DK client JSON.
-func fromDKClient(dkClient *fastjson.Value) (*Client, error) {
+func fromDKClient(dkClient *Client) (*X11Client, error) {
 	var icon string
 	var err error
-	wmInstance := string(dkClient.GetStringBytes("instance"))
-	wmClass := string(dkClient.GetStringBytes("class"))
-	pid := dkClient.GetInt("pid")
+	wmInstance := dkClient.Instance
+	wmClass := dkClient.Class
+	pid := dkClient.PID
 
 	terminal := checkTerminal(pid)
 	if terminal != nil {
@@ -131,13 +130,13 @@ func fromDKClient(dkClient *fastjson.Value) (*Client, error) {
 		icon = desktop.GetIconOr(wmClass, commandline, "application-x-executable")
 	}
 
-	return &Client{
-		ID:          string(dkClient.GetStringBytes("id")),
+	return &X11Client{
+		ID:          dkClient.ID,
 		WMInstance:  wmInstance,
 		WMClass:     wmClass,
-		WMName:      string(dkClient.GetStringBytes("title")),
-		WorkspaceID: dkClient.GetInt("workspace"),
-		WMPid:       pid,
+		WMName:      dkClient.Title,
+		WorkspaceID: dkClient.Workspace,
+		PID:         pid,
 		Commandline: commandline,
 		Icon:        icon,
 	}, nil

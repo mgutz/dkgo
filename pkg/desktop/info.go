@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mgutz/dkgo/pkg/util"
 	"gopkg.in/ini.v1"
+
+	"github.com/mgutz/dkgo/pkg/util"
 )
 
 var (
@@ -80,7 +81,8 @@ func GetIconOr(wmClass string, commandline string, fallback string) string {
 	return icon
 }
 
-// ReadDesktopFiles reads all desktop files from the $XDG_DATA_DIRS/applications.
+// ReadDesktopFiles reads all desktop files from $XDG_DATA_DIRS/applications
+// directory.
 func ReadDesktopFiles(xdgDataDirs string) ([]*AppInfo, error) {
 	if len(xdgDataDirs) == 0 {
 		xdgDataDirs = os.Getenv("XDG_DATA_DIRS")

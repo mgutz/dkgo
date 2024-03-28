@@ -8,27 +8,31 @@ import (
 )
 
 type RofiMenu struct {
-	Clients               []Client
+	Clients               []X11Client
 	HasMultipleWorkspaces bool
 }
 
-func (m *RofiMenu) Add(client Client) {
+func (m *RofiMenu) Add(client X11Client) {
 	m.Clients = append(m.Clients, client)
 }
 
 func (m *RofiMenu) AddNonSelectable(title string) {
-	m.Clients = append(m.Clients, Client{WMName: title})
+	m.Clients = append(m.Clients, X11Client{WMName: title})
 }
 
-func (m *RofiMenu) RofiList() []string {
+func (m *RofiMenu) menuList() []string {
 	var list []string
 	for _, client := range m.Clients {
-		list = append(list, m.RofiItem(client))
+		list = append(list, m.menuItem(client))
 	}
 	return list
 }
 
-func (m *RofiMenu) RofiItem(client Client) string {
+func htmlEscape(s string) string {
+	return strings.ReplaceAll(s, "<", "&lt;")
+}
+
+func (m *RofiMenu) menuItem(client X11Client) string {
 	if client.WMName == "" {
 		return "---"
 	}
@@ -42,19 +46,19 @@ func (m *RofiMenu) RofiItem(client Client) string {
 		workspaceInfo = fmt.Sprintf("<span size='xx-small'><tt>%2d</tt></span> ", client.WorkspaceID)
 	}
 
-	return fmt.Sprintf("%s<span size='xx-small'><tt>%-9s</tt></span> %s\x00icon\x1f%s", workspaceInfo, strings.ToLower(client.WMClass), client.WMName, client.Icon)
+	return fmt.Sprintf("%s<span size='xx-small'><tt>%-9s</tt></span> %s\x00icon\x1f%s", workspaceInfo, strings.ToLower(client.WMClass), htmlEscape(client.WMName), client.Icon)
 }
 
-func (m *RofiMenu) Run() *Client {
-	idx := m.RunRofi()
+func (m *RofiMenu) Run() *X11Client {
+	idx := m.runRofi()
 	if idx == -1 {
 		return nil
 	}
 	return &m.Clients[idx]
 }
 
-func (m *RofiMenu) RunRofi() int {
-	list := m.RofiList()
+func (m *RofiMenu) runRofi() int {
+	list := m.menuList()
 	if len(list) == 0 {
 		return -1
 	}

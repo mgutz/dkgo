@@ -11,18 +11,12 @@ import (
 type StatusCmd struct{}
 
 func (sc *StatusCmd) Run(ctx *Context) error {
-	status, err := dk.GetStatus()
+	status, err := dk.GetStatusDK()
 	if err != nil {
 		return err
 	}
 
-	var v any
-	err = json.Unmarshal([]byte(status.String()), &v)
-	if err != nil {
-		return err
-	}
-
-	b, err := json.MarshalIndent(v, "", "  ")
+	b, err := json.MarshalIndent(status, "", "  ")
 	if err != nil {
 		return err
 	}

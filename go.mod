@@ -6,7 +6,6 @@ require (
 	github.com/alecthomas/kong v0.9.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/shirou/gopsutil/v3 v3.24.2
-	github.com/valyala/fastjson v1.6.4
 	gopkg.in/ini.v1 v1.67.0
 )
 
