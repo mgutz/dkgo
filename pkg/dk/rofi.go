@@ -36,7 +36,7 @@ type Terminal struct {
 // selected window. If the selected window is in a different workspace, the
 // workspace is focused first.
 func RofiWindowList() error {
-	status, err := GetStatusDK()
+	status, err := GetStatus()
 	if err != nil {
 		return err
 	}

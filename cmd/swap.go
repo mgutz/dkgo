@@ -9,6 +9,5 @@ type SwapCmd struct {
 }
 
 func (wc *SwapCmd) Run(ctx *Context) error {
-	dk.SwapMaster(wc.AddressOrTileIndex)
-	return nil
+	return dk.SwapMaster(wc.AddressOrTileIndex)
 }

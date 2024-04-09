@@ -3,7 +3,6 @@ package dk
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -11,8 +10,8 @@ import (
 )
 
 // GetStatus returns the status of dk WM.
-func GetStatusDK() (*Status, error) {
-	result, err := util.Exec("dkcmd status type=json num=1")
+func GetStatus() (*Status, error) {
+	result, err := util.Exec("dkcmd status type=full num=1")
 	if err != nil {
 		return nil, err
 	}
@@ -30,9 +29,9 @@ func ViewWorkspace(clientID string) bool {
 		return false
 	}
 
-	status, err := GetStatusDK()
+	status, err := GetStatus()
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		return false
 	}
 
@@ -66,7 +65,7 @@ func SwapMaster(v string) error {
 	// isID := false
 	ViewWorkspace(v)
 
-	status, err := GetStatusDK()
+	status, err := GetStatus()
 	if err != nil {
 		return fmt.Errorf("failed to get status: %w", err)
 	}
@@ -149,7 +148,7 @@ func SwapMaster(v string) error {
 
 // CycleDynamicWS cycles through dynamic workspaces like MacOS.
 func CycleDynamicWS(direction string) error {
-	status, err := GetStatusDK()
+	status, err := GetStatus()
 	if err != nil {
 		return err
 	}

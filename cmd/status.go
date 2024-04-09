@@ -11,7 +11,7 @@ import (
 type StatusCmd struct{}
 
 func (sc *StatusCmd) Run(ctx *Context) error {
-	status, err := dk.GetStatusDK()
+	status, err := dk.GetStatus()
 	if err != nil {
 		return err
 	}
