@@ -181,6 +181,7 @@ func CycleDynamicWS(direction string) error {
 
 	// iterate through workspaces and keep ALL occupied and 1 empty workspace
 	emptyFound := false
+	findLastEmpty := false
 	for i := 0; i < len(workspaces); i++ {
 		idx := (focusedIdx + i) % len(workspaces)
 		ws := workspaces[idx]
@@ -191,6 +192,27 @@ func CycleDynamicWS(direction string) error {
 			ws._skip = true
 			continue
 		}
+
+		idx = (focusedIdx + i + 1) % len(workspaces)
+		nextWS := workspaces[idx]
+
+		// Handle edge case where moving previous from the first ws. If focus is on workspace
+		// 1 and there are 20 workspaces, then it will activate workspace 20. What we really
+		// want is the first empty workspace after the last occupied workspace to make
+		// wrapping more intuitive.
+		if findLastEmpty {
+			if len(nextWS.Clients) == 0 {
+				ws._skip = true
+				continue
+			}
+			emptyFound = true
+		}
+		if direction == "prev" && ws.Number == len(workspaces) && len(nextWS.Clients) == 0 {
+			findLastEmpty = true
+			ws._skip = true
+			continue
+		}
+
 		emptyFound = true
 	}
 
