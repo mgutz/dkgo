@@ -10,7 +10,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/main.go",
-      "args": ["rofi-master"]
+      "args": ["status"]
     }
   ]
 }

@@ -1,6 +1,7 @@
 package dk
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -15,8 +16,12 @@ func GetStatus() (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// remove newlines from output
+	output := bytes.Replace(result.Output, []byte("\n"), []byte(""), -1)
+
 	var status Status
-	err = json.Unmarshal([]byte(result.Output), &status)
+	err = json.Unmarshal([]byte(output), &status)
 	if err != nil {
 		return nil, err
 	}
