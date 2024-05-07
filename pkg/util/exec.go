@@ -59,7 +59,7 @@ func ExecWithStdin(statement string, stdinText string) (*CommandResult, error) {
 func run(name string, args ...string) (*CommandResult, error) {
 	cmd := exec.Command(name, args...)
 
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
 		rc := -1
 		if err, ok := err.(*exec.ExitError); ok {

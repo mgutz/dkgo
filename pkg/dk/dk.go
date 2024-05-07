@@ -21,7 +21,7 @@ func GetStatus() (*Status, error) {
 	output := bytes.Replace(result.Output, []byte("\n"), []byte(""), -1)
 
 	var status Status
-	err = json.Unmarshal([]byte(output), &status)
+	err = json.Unmarshal(output, &status)
 	if err != nil {
 		return nil, err
 	}
@@ -158,19 +158,7 @@ func CycleDynamicWS(direction string) error {
 		return err
 	}
 
-	// iterate through workspaces and keep ALL occupied and 1 empty workspace
 	workspaces := status.Workspaces
-	emptyFound := false
-	for _, ws := range workspaces {
-		if len(ws.Clients) > 0 {
-			continue
-		}
-		if emptyFound {
-			ws._skip = true
-			continue
-		}
-		emptyFound = true
-	}
 
 	// reversing the order keeps the same logic below for prev, next
 	if direction == "prev" {
@@ -191,7 +179,22 @@ func CycleDynamicWS(direction string) error {
 		return fmt.Errorf("no focused workspace")
 	}
 
-	// find the next workspace to switch to
+	// iterate through workspaces and keep ALL occupied and 1 empty workspace
+	emptyFound := false
+	for i := 0; i < len(workspaces); i++ {
+		idx := (focusedIdx + i) % len(workspaces)
+		ws := workspaces[idx]
+		if len(ws.Clients) > 0 {
+			continue
+		}
+		if emptyFound {
+			ws._skip = true
+			continue
+		}
+		emptyFound = true
+	}
+
+	// find the next workspace
 	target := -1
 	for i := 1; i < len(workspaces); i++ {
 		idx := (focusedIdx + i) % len(workspaces)
